@@ -47,6 +47,11 @@ export default function Cuestionario() {
 
       const url = await subirFoto(fotoFile, nombre);
 
+      if (!url) {
+        alert("Error subiendo foto.");
+        return;
+      }
+
       await insertarRespuesta({
         idpregunta: pregunta.idpregunta,
         idopcion: null,

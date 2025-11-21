@@ -32,22 +32,25 @@ export async function insertarRespuesta(respuesta) {
 }
 
 // SUBIR FOTO A STORAGE
-export async function subirFoto(file) {
-  const fileName = `${Date.now()}_${file.name}`;
+export async function subirFoto(file, nombre) {
+  const fileName = `${nombre}_${Date.now()}.jpg`;
 
-  const { error: uploadError } = await supabase.storage
-    .from("fotos") // bucket
-    .upload(fileName, file);
+  const { error } = await supabase.storage
+    .from("fotos-encuesta")
+    .upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false
+    });
 
-  if (uploadError) {
-    console.error(uploadError);
-    throw uploadError;
+  if (error) {
+    console.error("Error subiendo foto:", error);
+    return null;
   }
 
-  // obtener URL pública
-  const { data } = supabase.storage
-    .from("fotos")
+  // OBTENER URL PÚBLICA REAL
+  const { data: publicUrlData } = supabase.storage
+    .from("fotos-encuesta")
     .getPublicUrl(fileName);
 
-  return data.publicUrl;
+  return publicUrlData.publicUrl;
 }
