@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 
-// Función para convertir base64 → archivo real
 function base64ToFile(base64, fileName) {
   const arr = base64.split(",");
   const mime = arr[0].match(/:(.*?);/)[1];
@@ -20,8 +19,9 @@ export default function CuestionarioFoto({ onNext }) {
 
   const iniciarCamara = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact: "environment" } } // cámara trasera
+      video: { facingMode: { exact: "environment" } }
     });
+
     videoRef.current.srcObject = stream;
   };
 
@@ -37,6 +37,11 @@ export default function CuestionarioFoto({ onNext }) {
 
     const imagen = canvas.toDataURL("image/jpeg");
     setFoto(imagen);
+  };
+
+  const guardar = () => {
+    const file = base64ToFile(foto, "foto.jpg");
+    onNext(file); // ← AHORA SÍ ENVÍA UN FILE REAL
   };
 
   return (
@@ -74,13 +79,7 @@ export default function CuestionarioFoto({ onNext }) {
             }}
           />
 
-          <button
-            style={{ marginTop: 10 }}
-            onClick={() => {
-              const file = base64ToFile(foto, `foto_${Date.now()}.jpg`);
-              onNext(file);
-            }}
-          >
+          <button style={{ marginTop: 10 }} onClick={guardar}>
             Guardar y continuar
           </button>
         </>
