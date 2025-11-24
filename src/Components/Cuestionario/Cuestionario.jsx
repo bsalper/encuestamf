@@ -39,12 +39,12 @@ export default function Cuestionario() {
   }, [index, preguntas]);
 
   const handleNext = async (respuestaSeleccionada) => {
+  try {
     const pregunta = preguntas[index];
 
-    // Si la pregunta es de FOTO
+    // FOTO
     if (pregunta.tipopregunta === "foto") {
       const fotoFile = respuestaSeleccionada;
-
       const url = await subirFoto(fotoFile, nombre);
 
       if (!url) {
@@ -62,7 +62,7 @@ export default function Cuestionario() {
       });
 
     } else if (Array.isArray(respuestaSeleccionada)) {
-      // Pregunta múltiple
+      // MULTIPLE
       for (let idopcion of respuestaSeleccionada) {
         await insertarRespuesta({
           idpregunta: pregunta.idpregunta,
@@ -72,7 +72,7 @@ export default function Cuestionario() {
         });
       }
     } else {
-      // Pregunta única
+      // UNICA
       await insertarRespuesta({
         idpregunta: pregunta.idpregunta,
         idopcion: respuestaSeleccionada,
@@ -81,12 +81,20 @@ export default function Cuestionario() {
       });
     }
 
-    if (index + 1 === preguntas.length) {
+    // AVANZAR O FINALIZAR
+    if (index + 1 >= preguntas.length) {
       navigate("/gracias");
-    } else {
-      setIndex(index + 1);
+      return;
+    }
+
+    setIndex(index + 1);
+
+    } catch (error) {
+      console.error("Error guardando respuesta:", error);
+      alert("Ocurrió un error guardando la respuesta.");
     }
   };
+
 
   if (!preguntas.length) return <p>Cargando...</p>;
 
