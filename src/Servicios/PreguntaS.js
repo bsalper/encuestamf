@@ -36,7 +36,7 @@ export async function subirFoto(file, nombre) {
   const fileName = `${nombre}_${Date.now()}.jpg`;
 
   const { error } = await supabase.storage
-    .from("fotos-encuesta")
+    .from("fotos")
     .upload(fileName, file, {
       cacheControl: "3600",
       upsert: false
@@ -49,7 +49,7 @@ export async function subirFoto(file, nombre) {
 
   // OBTENER URL PÚBLICA REAL
   const { data: publicUrlData } = supabase.storage
-    .from("fotos-encuesta")
+    .from("fotos")
     .getPublicUrl(fileName);
 
   return publicUrlData.publicUrl;

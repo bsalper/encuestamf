@@ -41,7 +41,7 @@ export default function CuestionarioFoto({ onNext }) {
 
   const guardar = () => {
     const file = base64ToFile(foto, "foto.jpg");
-    onNext(file); // ← AHORA SÍ ENVÍA UN FILE REAL
+    onNext(file); // AHORA SÍ ENVÍA UN FILE REAL
   };
 
   return (
