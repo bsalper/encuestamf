@@ -121,50 +121,47 @@ export default function SurveyView() {
   };
 
   const finalizarEncuesta = async () => {
-    // 1. PRIMERO VALIDAR (Sin insertar nada aún)
+    // 1. VALIDACIÓN
     for (const p of preguntas) {
       const valor = respuestasValues[p.idpregunta];
       const esOpcional = p.descripcion.toLowerCase().includes("transporte");
 
       if (!esOpcional && (valor === null || valor === undefined || valor === "")) {
-        alert(`La pregunta "${p.descripcion}" es obligatoria o tiene un formato inválido.`);
+        alert(`La pregunta "${p.descripcion}" es obligatoria.`);
         return;
       }
     }
 
-    // 2. SI TODO ESTÁ BIEN, PROCESAR
     try {
       setIsProcessing(true);
       const listaParaCorreo = [];
 
-      // Usamos un solo loop para subir fotos, insertar en DB y preparar el correo
       for (const p of preguntas) {
         const valor = respuestasValues[p.idpregunta];
         let urlFoto = null;
 
         if ((p.tipopregunta === "foto" || p.tipopregunta === "firma") && valor) {
-          // Subir imagen al Bucket
           urlFoto = await subirFoto(valor, nombreVendedor);
-          
-          // Insertar en tabla respuesta
           await insertarRespuesta({ 
             idpregunta: p.idpregunta, 
             fotourl: urlFoto, 
-            id_vendedor: idVendedor,
+            id_vendedor: parseInt(idVendedor), // Aseguramos número
             fecha: new Date() 
           });
         } else {
-          // Insertar texto o opción única
+          // --- AQUÍ ESTABA EL ERROR ---
           await insertarRespuesta({ 
             idpregunta: p.idpregunta, 
-            descripcion: p.tipopregunta === "texto" ? valor : null,
-            idopcion: p.tipopregunta === "unica" ? valor : null,
-            id_vendedor: idVendedor,
+            // Si es texto O múltiple, guardamos el string en 'descripcion'
+            descripcion: (p.tipopregunta === "texto" || p.tipopregunta === "multiple") ? valor : null,
+            // Si es única, debemos buscar el ID de la opción. 
+            // Si 'valor' ya es el ID, lo dejamos; si es el texto, hay que buscarlo.
+            idopcion: p.tipopregunta === "unica" ? parseInt(valor) || null : null,
+            id_vendedor: parseInt(idVendedor),
             fecha: new Date() 
           });
         }
 
-        // Preparar objeto para el correo
         listaParaCorreo.push({
           idpregunta: p.idpregunta,
           pregunta: p.descripcion,
@@ -173,7 +170,6 @@ export default function SurveyView() {
         });
       }
 
-      // 3. ENVIAR CORREO Y NAVEGAR
       await enviarFormulario(listaParaCorreo);
       navigate("/gracias");
 
@@ -183,7 +179,7 @@ export default function SurveyView() {
     } finally {
       setIsProcessing(false);
     }
-  };
+};
 
   return (
     <div 
