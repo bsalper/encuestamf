@@ -305,6 +305,16 @@ export default function SurveyView() {
               isProcessing={isProcessing}
             />
           )}
+
+          {/* 5. CASO MÚLTIPLE (Checkboxes) */}
+          {p.tipopregunta === "multiple" && (
+            <CuestionarioMultiple 
+              opciones={opcionesMap[p.idpregunta] || []} 
+              // Enviamos el valor actual (será un string separado por comas)
+              currentValue={respuestasValues[p.idpregunta] || ""}
+              onChange={(val) => handleCambioRespuesta(p.idpregunta, val)} 
+            />
+          )}
         </div>
       ))}
 
