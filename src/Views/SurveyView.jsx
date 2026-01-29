@@ -1,21 +1,23 @@
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../../Servicios/Supabase";
-import "./Cuestionario.css";
-import { regionesChile } from "../../Utilidades/regionesChile";
+import { supabase } from "../Servicios/Supabase";
+import "./SurveyView.css";
+import { regionesChile } from "../Utilidades/regionesChile";
 
 import { 
   getPreguntas, 
   getOpciones, 
   insertarRespuesta, 
   subirFoto 
-} from "../../Servicios/PreguntaS";
+} from "../Servicios/PreguntaS";
 
-import CuestionarioUnico from "./CuestionarioUnico";
-import CuestionarioFoto from "./CuestionarioFoto";
-import CuestionarioTexto from "./CuestionarioTexto";
+import CuestionarioUnico from "../Components/Cuestionario/CuestionarioUnico";
+import CuestionarioFoto from "../Components/Cuestionario/CuestionarioFoto";
+import CuestionarioTexto from "../Components/Cuestionario/CuestionarioTexto";
+import CuestionarioMultiple from "../Components/Cuestionario/CuestionarioMultiple";
+import CuestionarioFirma from "../Components/Cuestionario/CuestionarioFirma";
 
-export default function Cuestionario() {
+export default function SurveyView() {
   const [preguntas, setPreguntas] = useState([]);
   const [opcionesMap, setOpcionesMap] = useState({});
   const [respuestasValues, setRespuestasValues] = useState({});
@@ -23,38 +25,57 @@ export default function Cuestionario() {
   const [regionActiva, setRegionActiva] = useState("");
   const [busquedaComuna, setBusquedaComuna] = useState("");
 
+  const { idEncuesta, idVendedor } = useParams();
   const navigate = useNavigate();
 
   // 1. Recuperamos los datos del vendedor desde el sessionStorage
   const nombreVendedor = sessionStorage.getItem("nombreencuestado");
-  const idVendedor = sessionStorage.getItem("id_vendedor");
   const idSupervisor = sessionStorage.getItem("id_supervisor");
 
   useEffect(() => {
-    // Si no hay vendedor (ej. alguien refrescó la página o entró directo), volvemos al inicio
-    if (!idVendedor) {
-      navigate("/");
-      return;
-    }
+  if (!idVendedor) {
+    console.error("❌ ERROR: No hay idVendedor en la URL");
+    navigate("/");
+    return;
+  }
 
-    async function cargarDatosIniciales() {
-      try {
-        const listaPreguntas = await getPreguntas();
-        setPreguntas(listaPreguntas);
+  async function cargarDatosIniciales() {
+    try {
+      const listaTotal = await getPreguntas();
+      
+      // LOGS CRUCIALES - Mira estos en la consola (F12)
+      // En SurveyView.jsx cambia la línea 46 por esta:
+      console.log("Estructura de la primera pregunta:", listaTotal[0]);
+      console.log("2. ¿Qué categoría busco?:", idEncuesta);
 
-        const map = {};
-        for (const p of listaPreguntas) {
-          if (p.tipopregunta === "unica" || p.tipopregunta === "multiple") {
-            map[p.idpregunta] = await getOpciones(p.idpregunta);
-          }
-        }
-        setOpcionesMap(map);
-      } catch (error) {
-        console.error("Error cargando datos:", error);
+      // Filtramos con cuidado extremo (quitando espacios y comparando minúsculas)
+      const filtradas = listaTotal.filter(p => {
+        const catPregunta = String(p.categoria || "").trim().toLowerCase();
+        const catURL = String(idEncuesta || "").trim().toLowerCase();
+        return catPregunta === catURL;
+      });
+
+      console.log("3. Preguntas después de filtrar:", filtradas);
+
+      if (filtradas.length === 0) {
+        console.warn("⚠️ AVISO: El filtro dejó 0 preguntas. Revisa si en Supabase escribiste 'operario' igual que en la URL.");
       }
+
+      setPreguntas(filtradas);
+
+      const map = {};
+      for (const p of filtradas) {
+        if (p.tipopregunta === "unica" || p.tipopregunta === "multiple") {
+          map[p.idpregunta] = await getOpciones(p.idpregunta);
+        }
+      }
+      setOpcionesMap(map);
+    } catch (error) {
+      console.error("❌ Error grave en la carga:", error);
     }
-    cargarDatosIniciales();
-  }, [idVendedor, navigate]);
+  }
+  cargarDatosIniciales();
+}, [idEncuesta, idVendedor, navigate]);
 
   const handleCambioRespuesta = (idPregunta, valor) => {
     setRespuestasValues(prev => ({ ...prev, [idPregunta]: valor }));
@@ -121,7 +142,7 @@ export default function Cuestionario() {
         const valor = respuestasValues[p.idpregunta];
         let urlFoto = null;
 
-        if (p.tipopregunta === "foto" && valor) {
+        if ((p.tipopregunta === "foto" || p.tipopregunta === "firma") && valor) {
           // Subir imagen al Bucket
           urlFoto = await subirFoto(valor, nombreVendedor);
           
@@ -129,7 +150,7 @@ export default function Cuestionario() {
           await insertarRespuesta({ 
             idpregunta: p.idpregunta, 
             fotourl: urlFoto, 
-            id_vendedor: idVendedor, // ID numérico de tu tabla
+            id_vendedor: idVendedor,
             fecha: new Date() 
           });
         } else {
@@ -138,7 +159,7 @@ export default function Cuestionario() {
             idpregunta: p.idpregunta, 
             descripcion: p.tipopregunta === "texto" ? valor : null,
             idopcion: p.tipopregunta === "unica" ? valor : null,
-            id_vendedor: idVendedor, // ID numérico de tu tabla
+            id_vendedor: idVendedor,
             fecha: new Date() 
           });
         }
@@ -274,6 +295,14 @@ export default function Cuestionario() {
             <CuestionarioFoto 
               onNext={(val) => handleCambioRespuesta(p.idpregunta, val)} 
               disabled={isProcessing} 
+            />
+          )}
+
+          {/* 4. CASO FIRMA */}
+          {p.tipopregunta === "firma" && (
+            <CuestionarioFirma 
+              onNext={(val) => handleCambioRespuesta(p.idpregunta, val)}
+              isProcessing={isProcessing}
             />
           )}
         </div>

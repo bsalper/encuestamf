@@ -1,0 +1,162 @@
+/* Contenedor principal con la foto de fondo */
+.home-background {
+  height: 100vh;
+  width: 100vw;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Capa oscura para que el texto resalte */
+.home-overlay {
+  height: 100%;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4); /* Oscurece un poco la foto */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tarjeta Central (Glassmorphism) */
+.welcome-card {
+  background: rgba(255, 255, 255, 0.5);
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  backdrop-filter: blur(5px);
+  font-family: Blauer Neue;
+}
+
+.welcome-title {
+  color: #2c3e50;
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.welcome-subtitle {
+  color: #2c3e50;
+  font-size: 1.1rem;
+  margin-bottom: 20px;
+}
+
+.welcome-divider {
+  border: 0;
+  height: 1px;
+  background: #eee;
+  margin: 20px 0;
+}
+
+.instruction-text {
+  margin-bottom: 20px;
+  color: #2c3e50;
+}
+
+/* Botones */
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.btn-home {
+  padding: 15px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-vendedor { background-color: #62BB61; color: white; }
+.btn-operario { background-color: #356459; color: white; }
+
+.btn-home:hover {
+  transform: translateY(-3px);
+  filter: brightness(1.1);
+}
+
+/* Sección PIN */
+.pin-input {
+    /* Esto es lo más importante: obliga al navegador a incluir el 
+       padding y el borde DENTRO del 100% del ancho */
+    box-sizing: border-box; 
+    
+    width: 100%; 
+    max-width: 100%; /* Refuerzo para que no se escape */
+    
+    padding: 12px;
+    font-size: 1.5rem;
+    text-align: center;
+    letter-spacing: 10px;
+    
+    background: rgba(255, 255, 255, 0.2); 
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    color: #1a1a1a; 
+    margin-bottom: 20px;
+    outline: none;
+}
+
+.btn-confirmar {
+  background-color: #27ae60;
+  color: white;
+  padding: 12px 25px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.btn-volver {
+  background: none;
+  border: none;
+  color: #2c3e50;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* --- AJUSTES PARA TELÉFONO --- */
+@media (max-width: 480px) {
+  .welcome-card {
+    padding: 25px 20px; /* Reducimos el padding interno */
+    width: 85%; /* Le damos un poco más de aire a los costados */
+    border-radius: 15px; /* Bordes ligeramente menos redondeados */
+  }
+
+  .welcome-title {
+    font-size: 1.5rem; /* Título más pequeño para que no ocupe 3 líneas */
+  }
+
+  .welcome-subtitle {
+    font-size: 0.95rem;
+    line-height: 1.3;
+  }
+
+  .btn-home {
+    padding: 12px; /* Botones un poco más compactos */
+    font-size: 1rem;
+  }
+
+  .pin-input {
+    font-size: 1.2rem;
+    letter-spacing: 8px;
+    padding: 10px;
+  }
+}
+
+/* Ajuste para teléfonos muy pequeños o en modo horizontal corto */
+@media (max-height: 600px) {
+  .welcome-card {
+    padding: 15px;
+    margin: 10px 0;
+  }
+  .welcome-title { margin-bottom: 5px; }
+  .welcome-divider { margin: 10px 0; }
+}

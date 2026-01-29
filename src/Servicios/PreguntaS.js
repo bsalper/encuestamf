@@ -18,7 +18,7 @@ export async function getVendedores() {
 export async function getPreguntas() {
   const { data, error } = await supabase
     .from("pregunta")
-    .select("idpregunta, tipopregunta, descripcion")
+    .select("*")
     .order("idpregunta", { ascending: true });
 
   if (error) throw error;
