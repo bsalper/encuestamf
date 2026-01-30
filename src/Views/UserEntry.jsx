@@ -22,7 +22,7 @@ export default function UserEntry() {
           const diegoFijo = [{ 
             id_vendedor: 999, 
             nombre: "Diego García",
-            zona: "Logística" // Agregué zona para que no aparezca vacío
+            zona: "Quilicura"
           }];
           setVendedores(diegoFijo);
         } else {

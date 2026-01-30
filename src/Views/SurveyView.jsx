@@ -71,7 +71,7 @@ export default function SurveyView() {
       }
       setOpcionesMap(map);
     } catch (error) {
-      console.error("❌ Error grave en la carga:", error);
+      console.error("Error grave en la carga:", error);
     }
   }
   cargarDatosIniciales();
