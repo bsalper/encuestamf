@@ -1,29 +1,39 @@
 import React from 'react';
 
 export default function CuestionarioMultiple({ opciones, currentValue, onChange }) {
-  const seleccionadas = currentValue ? currentValue.split(", ") : [];
+  // Ahora manejamos una lista de IDs (convertimos a String para el split y luego a Number)
+  const seleccionadas = currentValue 
+    ? String(currentValue).split(",").map(id => id.trim()) 
+    : [];
 
-  const handleToggle = (descripcion) => {
+  const handleToggle = (idOpcion) => {
+    const idStr = String(idOpcion);
     let nuevasSeleccionadas;
-    if (seleccionadas.includes(descripcion)) {
-      nuevasSeleccionadas = seleccionadas.filter(item => item !== descripcion);
+    
+    if (seleccionadas.includes(idStr)) {
+      nuevasSeleccionadas = seleccionadas.filter(item => item !== idStr);
     } else {
-      nuevasSeleccionadas = [...seleccionadas, descripcion];
+      nuevasSeleccionadas = [...seleccionadas, idStr];
     }
-    onChange(nuevasSeleccionadas.join(", "));
+    
+    // Unimos los IDs con comas para guardarlos en la columna 'descripcion'
+    onChange(nuevasSeleccionadas.join(","));
   };
 
   return (
     <div className="opciones-grid">
-      {opciones.map((opt) => (
-        <div 
-          key={opt.idopcion} 
-          className={`opcion-card ${seleccionadas.includes(opt.descripcion) ? 'activa' : ''}`}
-          onClick={() => handleToggle(opt.descripcion)}
-        >
-          <span className="check-texto">{opt.descripcion}</span>
-        </div>
-      ))}
+      {opciones.map((opt) => {
+        const esActiva = seleccionadas.includes(String(opt.idopcion));
+        return (
+          <div 
+            key={opt.idopcion} 
+            className={`opcion-card ${esActiva ? 'activa' : ''}`}
+            onClick={() => handleToggle(opt.idopcion)} // Enviamos el ID
+          >
+            <span className="check-texto">{opt.descripcion}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

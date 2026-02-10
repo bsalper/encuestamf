@@ -25,7 +25,7 @@ export default function SurveyView() {
   const [regionActiva, setRegionActiva] = useState("");
   const [busquedaComuna, setBusquedaComuna] = useState("");
 
-  const { idEncuesta, idVendedor } = useParams();
+  const { idEncuesta, idUsuario } = useParams();
   const navigate = useNavigate();
 
   // 1. Recuperamos los datos del vendedor desde el sessionStorage
@@ -33,8 +33,8 @@ export default function SurveyView() {
   const idSupervisor = sessionStorage.getItem("id_supervisor");
 
   useEffect(() => {
-  if (!idVendedor) {
-    console.error("❌ ERROR: No hay idVendedor en la URL");
+  if (!idUsuario) {
+    console.error("ERROR: No hay idUsuario en la URL");
     navigate("/");
     return;
   }
@@ -50,7 +50,7 @@ export default function SurveyView() {
 
       // Filtramos con cuidado extremo (quitando espacios y comparando minúsculas)
       const filtradas = listaTotal.filter(p => {
-        const catPregunta = String(p.categoria || "").trim().toLowerCase();
+        const catPregunta = String(p.tipo_formulario || "").trim().toLowerCase();
         const catURL = String(idEncuesta || "").trim().toLowerCase();
         return catPregunta === catURL;
       });
@@ -58,7 +58,7 @@ export default function SurveyView() {
       console.log("3. Preguntas después de filtrar:", filtradas);
 
       if (filtradas.length === 0) {
-        console.warn("⚠️ AVISO: El filtro dejó 0 preguntas. Revisa si en Supabase escribiste 'operario' igual que en la URL.");
+        console.warn("AVISO: El filtro dejó 0 preguntas. Revisa si en Supabase escribiste 'operario' igual que en la URL.");
       }
 
       setPreguntas(filtradas);
@@ -75,7 +75,7 @@ export default function SurveyView() {
     }
   }
   cargarDatosIniciales();
-}, [idEncuesta, idVendedor, navigate]);
+}, [idEncuesta, idUsuario, navigate]);
 
   const handleCambioRespuesta = (idPregunta, valor) => {
     setRespuestasValues(prev => ({ ...prev, [idPregunta]: valor }));
@@ -124,7 +124,7 @@ export default function SurveyView() {
     // 1. VALIDACIÓN
     for (const p of preguntas) {
       const valor = respuestasValues[p.idpregunta];
-      const esOpcional = p.descripcion.toLowerCase().includes("transporte");
+      const esOpcional = p.descripcion?.toLowerCase().includes("transporte");
 
       if (!esOpcional && (valor === null || valor === undefined || valor === "")) {
         alert(`La pregunta "${p.descripcion}" es obligatoria.`);
@@ -138,34 +138,61 @@ export default function SurveyView() {
 
       for (const p of preguntas) {
         const valor = respuestasValues[p.idpregunta];
+        const tipo = p.tipopregunta ? p.tipopregunta.trim().toLowerCase() : "";
+        
+        // DECLARACIÓN INICIAL: Definimos urlFoto aquí para que sea visible en todo el bucle
         let urlFoto = null;
 
-        if ((p.tipopregunta === "foto" || p.tipopregunta === "firma") && valor) {
-          urlFoto = await subirFoto(valor, nombreVendedor);
-          await insertarRespuesta({ 
-            idpregunta: p.idpregunta, 
-            fotourl: urlFoto, 
-            id_vendedor: parseInt(idVendedor), // Aseguramos número
-            fecha: new Date() 
+        const payload = {
+          idpregunta: p.idpregunta,
+          id_usuario: parseInt(idUsuario),
+          fecha: new Date().toISOString(),
+          fotourl: null,
+          idopcion: null,
+          descripcion: null
+        };
+
+        // 2. LÓGICA DE ASIGNACIÓN
+        if ((tipo === "foto" || tipo === "firma") && valor) {
+          // Asignamos el resultado a la variable declarada arriba
+          urlFoto = await subirFoto(valor, sessionStorage.getItem("nombreencuestado") || "Usuario");
+          payload.fotourl = urlFoto;
+        } 
+        else if (tipo === "unica") {
+          // Forzamos guardado en idopcion
+          payload.idopcion = parseInt(valor) || null;
+          payload.descripcion = null;
+        } 
+        else if (tipo === "multiple") {
+          // Los IDs múltiples van a descripción como texto
+          payload.descripcion = valor ? String(valor) : null;
+          payload.idopcion = null;
+        }
+        else {
+          // Texto normal
+          payload.descripcion = valor ? String(valor) : null;
+        }
+
+        // 3. GUARDADO (Se envía el payload configurado)
+        await insertarRespuesta(payload);
+
+        // 4. PREPARACIÓN PARA CORREO
+        let textoCorreo = valor;
+        if (tipo === "unica") {
+          const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === String(valor));
+          textoCorreo = opt ? opt.descripcion : valor;
+        } else if (tipo === "multiple" && valor) {
+          const ids = String(valor).split(",");
+          const nombres = ids.map(id => {
+            const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === id.trim());
+            return opt ? opt.descripcion : id;
           });
-        } else {
-          // --- AQUÍ ESTABA EL ERROR ---
-          await insertarRespuesta({ 
-            idpregunta: p.idpregunta, 
-            // Si es texto O múltiple, guardamos el string en 'descripcion'
-            descripcion: (p.tipopregunta === "texto" || p.tipopregunta === "multiple") ? valor : null,
-            // Si es única, debemos buscar el ID de la opción. 
-            // Si 'valor' ya es el ID, lo dejamos; si es el texto, hay que buscarlo.
-            idopcion: p.tipopregunta === "unica" ? parseInt(valor) || null : null,
-            id_vendedor: parseInt(idVendedor),
-            fecha: new Date() 
-          });
+          textoCorreo = nombres.join(", ");
         }
 
         listaParaCorreo.push({
-          idpregunta: p.idpregunta,
           pregunta: p.descripcion,
-          respuesta: urlFoto || valor,
+          respuesta: urlFoto || textoCorreo, // Aquí ya no dará error porque urlFoto está definida
           fotourl: urlFoto
         });
       }
@@ -174,12 +201,12 @@ export default function SurveyView() {
       navigate("/gracias");
 
     } catch (error) {
-      console.error("Error al finalizar:", error);
-      alert("Error: " + error.message);
+      console.error("Error en el proceso:", error);
+      alert("Error al procesar: " + error.message);
     } finally {
       setIsProcessing(false);
     }
-};
+  };
 
   return (
     <div 

@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getVendedores } from "../Servicios/PreguntaS";
+import { getUsuarios } from "../Servicios/PreguntaS"; // Nombre de función actualizado
 
 export default function UserEntry() {
   const { idEncuesta } = useParams();
-  const [vendedores, setVendedores] = useState([]);
+  const [usuarios, setUsuarios] = useState([]); // Nombre más genérico
   const [cargando, setCargando] = useState(true);
   const navigate = useNavigate();
 
@@ -19,18 +19,20 @@ export default function UserEntry() {
     async function cargar() {
       try {
         if (idEncuesta === 'operario') {
+          // Diego ahora usa la nomenclatura 'id_usuario'
           const diegoFijo = [{ 
-            id_vendedor: 999, 
+            id_usuario: 999, 
             nombre: "Diego García",
             zona: "Quilicura"
           }];
-          setVendedores(diegoFijo);
+          setUsuarios(diegoFijo);
         } else {
-          const lista = await getVendedores();
-          setVendedores(lista);
+          // Llamamos a la nueva función que apunta a la tabla 'usuario'
+          const lista = await getUsuarios();
+          setUsuarios(lista);
         }
       } catch (error) {
-        console.error("Error cargando:", error);
+        console.error("Error cargando usuarios:", error);
       } finally {
         setCargando(false);
       }
@@ -38,10 +40,13 @@ export default function UserEntry() {
     cargar();
   }, [idEncuesta]);
 
-  const seleccionarVendedor = (v) => {
-    sessionStorage.setItem("nombreencuestado", v.nombre);
-    sessionStorage.setItem("id_vendedor", v.id_vendedor);
-    navigate(`/cuestionario/${idEncuesta}/${v.id_vendedor}`);
+  const seleccionarUsuario = (u) => {
+    // Guardamos con los nuevos nombres de columna
+    sessionStorage.setItem("nombreencuestado", u.nombre);
+    sessionStorage.setItem("id_usuario", u.id_usuario); 
+    
+    // La URL ahora lleva el id_usuario
+    navigate(`/cuestionario/${idEncuesta}/${u.id_usuario}`);
   };
 
   return (
@@ -64,28 +69,29 @@ export default function UserEntry() {
           <p style={{ textAlign: "center" }}>Cargando {labels.carga}...</p>
         ) : (
           <div className="vendedor-list-container">
-            {vendedores.length > 0 ? (
-              vendedores.map((v) => (
+            {usuarios.length > 0 ? (
+              usuarios.map((u) => (
                 <div
-                  key={v.id_vendedor}
+                  key={u.id_usuario}
                   className="opcion-card"
-                  onClick={() => seleccionarVendedor(v)}
+                  onClick={() => seleccionarUsuario(u)}
                   style={{ 
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       alignItems: 'center',
-                      marginBottom: '10px'
+                      marginBottom: '10px',
+                      textAlign: 'left'
                   }}
                 >
-                  <div style={{ textAlign: 'left' }}>
-                    <strong style={{ display: 'block' }}>{v.nombre}</strong>
-                    <small style={{ color: '#888' }}>Zona: {v.zona}</small>
+                  <div>
+                    <strong style={{ display: 'block' }}>{u.nombre}</strong>
+                    <small style={{ color: '#888' }}>Zona: {u.zona || 'N/A'}</small>
                   </div>
                   <span style={{ color: '#3498db', fontWeight: 'bold' }}>→</span>
                 </div>
               ))
             ) : (
-              <p style={{ textAlign: "center", color: "red" }}>Usuario no encontrado para esta sección.</p>
+              <p style={{ textAlign: "center", color: "red" }}>Usuario no encontrado.</p>
             )}
           </div>
         )}

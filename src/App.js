@@ -15,7 +15,7 @@ export default function App() {
         <Route path="/encuesta/:idEncuesta" element={<UserEntry />} />
         
         {/* Cuestionario Directo (El que usará Diego) */}
-        <Route path="/cuestionario/:idEncuesta/:idVendedor" element={<SurveyView />} />
+        <Route path="/cuestionario/:idEncuesta/:idUsuario" element={<SurveyView />} />
         
         <Route path="/gracias" element={<Gracias />} />
       </Routes>

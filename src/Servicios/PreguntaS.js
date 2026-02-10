@@ -1,14 +1,14 @@
 import { supabase } from "./Supabase";
 
-// Obtener todas los vendedores
-export async function getVendedores() {
+// 1. Renombrado de getVendedores a getUsuarios y cambio de tabla
+export async function getUsuarios() {
   const { data, error } = await supabase
-    .from("vendedor")
+    .from("usuario") // Nombre de la nueva tabla
     .select("*")
     .order("nombre", { ascending: true });
 
   if (error) {
-    console.error("Error cargando vendedores:", error);
+    console.error("Error cargando usuarios:", error);
     return [];
   }
   return data;
@@ -37,7 +37,8 @@ export async function getOpciones(idpregunta) {
   return data;
 }
 
-// Insertar respuesta
+// 2. La función insertarRespuesta no cambia internamente, 
+// pero el objeto que reciba desde SurveyView debe traer 'id_usuario'
 export async function insertarRespuesta(respuesta) {
   const { error } = await supabase.from("respuesta").insert(respuesta);
 
@@ -49,7 +50,13 @@ export async function insertarRespuesta(respuesta) {
 
 // SUBIR FOTO A STORAGE
 export async function subirFoto(file, nombre) {
-  const fileName = `${nombre}_${Date.now()}.jpg`;
+  // Una sola declaración limpia: quita tildes y espacios
+  const nombreLimpio = nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/\s+/g, '_');
+
+  const fileName = `${nombreLimpio}_${Date.now()}.jpg`;
 
   const { error } = await supabase.storage
     .from("fotos")
@@ -63,7 +70,6 @@ export async function subirFoto(file, nombre) {
     return null;
   }
 
-  // OBTENER URL PÚBLICA REAL
   const { data: publicUrlData } = supabase.storage
     .from("fotos")
     .getPublicUrl(fileName);
