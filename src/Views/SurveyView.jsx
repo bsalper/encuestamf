@@ -218,7 +218,8 @@ export default function SurveyView() {
       <div className="cuestionario-container">
         <h1 className="titulo-encuesta">Registro de Visita</h1>
         <div className="vendedor-badge">
-          Vendedor: <strong>{nombreVendedor}</strong>
+          {String(idEncuesta).toLowerCase().includes("operario") ? "Operador: " : "Vendedor: "} 
+          <strong>{nombreVendedor}</strong>
         </div>
 
         {preguntas.map((p) => (
@@ -327,12 +328,27 @@ export default function SurveyView() {
               />
             )}
 
-            {/* 4. CASO FIRMA */}
+            {/* 4. CASO FIRMA (Diferenciada por descripción) */}
             {p.tipopregunta === "firma" && (
-              <CuestionarioFirma 
-                onNext={(val) => handleCambioRespuesta(p.idpregunta, val)}
-                isProcessing={isProcessing}
-              />
+              <div className="contenedor-firma-especifico">
+                {/* Agregamos un título pequeño arriba si la descripción no es clara */}
+                <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '5px' }}>
+                  Por favor, firme en el recuadro blanco:
+                </p>
+                
+                <CuestionarioFirma 
+                  key={`firma-${p.idpregunta}`} // Key única para que React no recicle el canvas
+                  onNext={(val) => handleCambioRespuesta(p.idpregunta, val)}
+                  isProcessing={isProcessing}
+                />
+                
+                {/* Feedback visual de que la firma se capturó */}
+                {respuestasValues[p.idpregunta] && (
+                  <span style={{ color: 'green', fontSize: '0.8rem' }}>
+                    ✓ Firma registrada
+                  </span>
+                )}
+              </div>
             )}
 
             {/* 5. CASO MÚLTIPLE (Checkboxes) */}
