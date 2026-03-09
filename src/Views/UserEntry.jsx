@@ -19,11 +19,11 @@ export default function UserEntry() {
     async function cargar() {
       try {
         if (idEncuesta === 'operario') {
-          // Diego ahora usa la nomenclatura 'id_usuario'
           const diegoFijo = [{ 
             id_usuario: 999, 
             nombre: "Diego García",
-            zona: "Quilicura"
+            zona: "Quilicura",
+            id_supervisor: 1 // <--- AGREGA ESTO (Usa un ID que exista en tu tabla 'supervisor')
           }];
           setUsuarios(diegoFijo);
         } else {
@@ -41,11 +41,12 @@ export default function UserEntry() {
   }, [idEncuesta]);
 
   const seleccionarUsuario = (u) => {
-    // Guardamos con los nuevos nombres de columna
     sessionStorage.setItem("nombreencuestado", u.nombre);
     sessionStorage.setItem("id_usuario", u.id_usuario); 
     
-    // La URL ahora lleva el id_usuario
+    // LÍNEA CRÍTICA: Si u.id_supervisor es undefined aquí, el envío fallará después.
+    sessionStorage.setItem("id_supervisor", u.id_supervisor); 
+    
     navigate(`/cuestionario/${idEncuesta}/${u.id_usuario}`);
   };
 

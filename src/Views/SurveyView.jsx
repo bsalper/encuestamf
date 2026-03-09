@@ -30,7 +30,6 @@ export default function SurveyView() {
 
   // 1. Recuperamos los datos del vendedor desde el sessionStorage
   const nombreVendedor = sessionStorage.getItem("nombreencuestado");
-  const idSupervisor = sessionStorage.getItem("id_supervisor");
 
   useEffect(() => {
   if (!idUsuario) {
@@ -83,40 +82,42 @@ export default function SurveyView() {
 
   const enviarFormulario = async (respuestasFinales) => {
     try {
-      // 2. Buscamos al supervisor usando el ID que recuperamos del session
-      const { data: supervisor } = await supabase
+      // 1. Recuperamos el ID del supervisor
+      const idSup = sessionStorage.getItem("id_supervisor");
+
+      if (!idSup || idSup === "undefined") {
+        console.error("No se encontró id_supervisor en el almacenamiento.");
+        return; // Detenemos si no hay a quién buscar
+      }
+
+      // 2. Buscamos los datos del supervisor en la base de datos
+      const { data: supervisor, error: supError } = await supabase
         .from("supervisor")
         .select("email, nombre")
-        .eq("id_supervisor", Number(idSupervisor))
+        .eq("id_supervisor", Number(idSup))
         .maybeSingle();
 
-      if (!supervisor) return;
+      if (supError || !supervisor) {
+        console.error("Error al buscar supervisor:", supError);
+        return;
+      }
 
-      const { data: descripciones } = await supabase
-        .from("tiporespuesta")
-        .select("idopcion, descripcion");
-
-      const datosParaEnviar = respuestasFinales.map(r => {
-        const preguntaOriginal = preguntas.find(p => p.idpregunta === r.idpregunta);
-        const opcionDB = descripciones?.find(d => d.idopcion.toString() === r.respuesta?.toString());
-        
-        return {
-          pregunta: preguntaOriginal ? preguntaOriginal.descripcion : `Pregunta ${r.idpregunta}`,
-          respuesta: r.fotourl ? "Imagen adjunta" : (opcionDB ? opcionDB.descripcion : r.respuesta),
-          fotourl: r.fotourl || null
-        };
-      });
-
-      await supabase.functions.invoke('enviar-correo', {
+      // 3. Invocamos la Edge Function de Supabase
+      const { error: invokeError } = await supabase.functions.invoke('enviar-correo', {
         body: {
-          email: supervisor.email,
+          email: supervisor.email,        // Destinatario dinámico
           nombreSupervisor: supervisor.nombre,
-          encuestado: nombreVendedor,
-          respuestas: datosParaEnviar
+          encuestado: nombreVendedor,     // Declarado arriba en el componente
+          respuestas: respuestasFinales   // Array con textos y fotos
         },
       });
+
+      if (invokeError) throw invokeError;
+      
+      console.log("Notificación enviada con éxito a:", supervisor.email);
+
     } catch (err) {
-      console.error("Error en envío:", err);
+      console.error("Error crítico en el flujo de notificación:", err);
     }
   };
 

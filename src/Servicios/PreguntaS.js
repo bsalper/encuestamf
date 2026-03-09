@@ -1,18 +1,13 @@
 import { supabase } from "./Supabase";
 
 // 1. Renombrado de getVendedores a getUsuarios y cambio de tabla
-export async function getUsuarios() {
+export const getUsuarios = async () => {
   const { data, error } = await supabase
-    .from("usuario") // Nombre de la nueva tabla
-    .select("*")
-    .order("nombre", { ascending: true });
-
-  if (error) {
-    console.error("Error cargando usuarios:", error);
-    return [];
-  }
+    .from('usuario') // Verifica si es 'Usuario' o 'usuario' (mayúsculas)
+    .select('id_usuario, nombre, zona, id_supervisor'); // Asegúrate de incluir id_supervisor
+  if (error) throw error;
   return data;
-}
+};
 
 // Obtener todas las preguntas
 export async function getPreguntas() {
