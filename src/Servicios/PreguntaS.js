@@ -34,11 +34,15 @@ export async function getOpciones(idpregunta) {
 
 // 2. La función insertarRespuesta no cambia internamente, 
 // pero el objeto que reciba desde SurveyView debe traer 'id_usuario'
-export async function insertarRespuesta(respuesta) {
-  const { error } = await supabase.from("respuesta").insert(respuesta);
+export async function insertarRespuesta(respuesta, tipoFormulario) {
+  const tablaDestino = tipoFormulario === "operario" ? "respuestas_operario" : "respuesta";
+
+  const { error } = await supabase
+    .from(tablaDestino)
+    .insert(respuesta);
 
   if (error) {
-    console.error("Error insertando respuesta:", error);
+    console.error(`Error insertando en ${tablaDestino}:`, error);
     throw error;
   }
 }

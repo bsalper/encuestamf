@@ -121,8 +121,8 @@ export default function SurveyView() {
     }
   };
 
-  const finalizarEncuesta = async () => {
-    // 1. VALIDACIÓN
+ const finalizarEncuesta = async () => {
+    // 1. VALIDACIÓN (Sin cambios)
     for (const p of preguntas) {
       const valor = respuestasValues[p.idpregunta];
       const esOpcional = p.descripcion?.toLowerCase().includes("transporte");
@@ -140,11 +140,11 @@ export default function SurveyView() {
       for (const p of preguntas) {
         const valor = respuestasValues[p.idpregunta];
         const tipo = p.tipopregunta ? p.tipopregunta.trim().toLowerCase() : "";
-        
-        // DECLARACIÓN INICIAL: Definimos urlFoto aquí para que sea visible en todo el bucle
         let urlFoto = null;
+        let textoCorreo = valor;
 
-        const payload = {
+        // Template base del payload
+        const basePayload = {
           idpregunta: p.idpregunta,
           id_usuario: parseInt(idUsuario),
           fecha: new Date().toISOString(),
@@ -153,52 +153,61 @@ export default function SurveyView() {
           descripcion: null
         };
 
-        // 2. LÓGICA DE ASIGNACIÓN
+        // 2. LÓGICA DE ASIGNACIÓN Y GUARDADO
         if ((tipo === "foto" || tipo === "firma") && valor) {
-          // Asignamos el resultado a la variable declarada arriba
           urlFoto = await subirFoto(valor, sessionStorage.getItem("nombreencuestado") || "Usuario");
-          payload.fotourl = urlFoto;
+          const payload = { ...basePayload, fotourl: urlFoto };
+          await insertarRespuesta(payload, idEncuesta); // Guardado normal
         } 
         else if (tipo === "unica") {
-          // Forzamos guardado en idopcion
-          payload.idopcion = parseInt(valor) || null;
-          payload.descripcion = null;
+          const payload = { ...basePayload, idopcion: parseInt(valor) || null };
+          await insertarRespuesta(payload, idEncuesta); // Guardado normal
+
+          // Preparar texto para correo
+          const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === String(valor));
+          textoCorreo = opt ? opt.descripcion : valor;
         } 
-        else if (tipo === "multiple") {
-          // Los IDs múltiples van a descripción como texto
-          payload.descripcion = valor ? String(valor) : null;
-          payload.idopcion = null;
+        else if (tipo === "multiple" && valor) {
+          // --- OPCIÓN A: UNA FILA POR OPCIÓN ---
+          const ids = String(valor).split(",");
+          const nombresSeleccionados = [];
+
+          for (const idStr of ids) {
+            const idLimpio = idStr.trim();
+            const payloadMultiple = { ...basePayload, idopcion: parseInt(idLimpio) };
+            
+            // Insertamos cada opción como una fila independiente
+            await insertarRespuesta(payloadMultiple, idEncuesta);
+
+            // Buscamos el nombre para el correo
+            const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === idLimpio);
+            nombresSeleccionados.push(opt ? opt.descripcion : idLimpio);
+          }
+          textoCorreo = nombresSeleccionados.join(", ");
         }
         else {
           // Texto normal
-          payload.descripcion = valor ? String(valor) : null;
+          const payload = { ...basePayload, descripcion: valor ? String(valor) : null };
+          await insertarRespuesta(payload, idEncuesta); // Guardado normal
         }
 
-        // 3. GUARDADO (Se envía el payload configurado)
-        await insertarRespuesta(payload);
-
-        // 4. PREPARACIÓN PARA CORREO
-        let textoCorreo = valor;
-        if (tipo === "unica") {
-          const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === String(valor));
-          textoCorreo = opt ? opt.descripcion : valor;
-        } else if (tipo === "multiple" && valor) {
-          const ids = String(valor).split(",");
-          const nombres = ids.map(id => {
-            const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === id.trim());
-            return opt ? opt.descripcion : id;
-          });
-          textoCorreo = nombres.join(", ");
-        }
-
+        // 3. PREPARACIÓN PARA CORREO (Se llena la lista con el texto procesado arriba)
         listaParaCorreo.push({
           pregunta: p.descripcion,
-          respuesta: urlFoto || textoCorreo, // Aquí ya no dará error porque urlFoto está definida
+          respuesta: urlFoto || textoCorreo,
           fotourl: urlFoto
         });
       }
 
-      await enviarFormulario(listaParaCorreo);
+      // 4. ENVÍO DE CORREO (FUERA DEL BUCLE)
+      // Solo si NO es operario
+      if (idEncuesta && !idEncuesta.toLowerCase().includes("operario")) {
+        await enviarFormulario(listaParaCorreo);
+        console.log("Correo enviado con éxito.");
+      } else {
+        console.log("Modo operario: No se envía correo.");
+      }
+      
       navigate("/gracias");
 
     } catch (error) {
@@ -207,7 +216,7 @@ export default function SurveyView() {
     } finally {
       setIsProcessing(false);
     }
-  };
+};
 
   return (
     <div 
