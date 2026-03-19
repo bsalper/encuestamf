@@ -1,6 +1,9 @@
 import { useState, useRef } from "react";
 
 function base64ToFile(base64, fileName) {
+  // Añadimos una validación simple por seguridad
+  if (!base64 || typeof base64 !== 'string' || !base64.includes(",")) return null;
+  
   const arr = base64.split(",");
   const mime = arr[0].match(/:(.*?);/)[1];
   const bstr = atob(arr[1]);
@@ -57,8 +60,16 @@ export default function CuestionarioFoto({ onNext, disabled }) {
     
     setCamaraActiva(false);
 
-    const file = base64ToFile(imagenBase64, `evidencia_${Date.now()}.jpg`);
-    onNext(file);
+    // 1. Convertimos el Base64 a un archivo REAL antes de enviarlo
+    const archivoFile = base64ToFile(imagenBase64, `evidencia_${Date.now()}.jpg`);
+    
+    // 2. Enviamos el ARCHIVO al padre (SurveyView) para que se suba al Bucket
+    if (archivoFile) {
+      onNext(archivoFile); 
+      console.log("Archivo generado exitosamente para el Bucket");
+    } else {
+      console.error("No se pudo generar el archivo desde el Base64");
+    }
   };
 
   const reintentar = () => {
@@ -72,8 +83,8 @@ export default function CuestionarioFoto({ onNext, disabled }) {
         <div className="camara-wrapper">
           {camaraActiva ? (
             <>
-              <video ref={videoRef} autoPlay playsInline className="video-preview"></video>
-              <button className="opcion-card activa" onClick={capturarFoto} disabled={disabled} style={{width: '100%'}}>
+              <video ref={videoRef} autoPlay playsInline className="video-preview" style={{width: '100%', borderRadius: '8px'}}></video>
+              <button className="opcion-card activa" onClick={capturarFoto} disabled={disabled} style={{width: '100%', marginTop: '10px'}}>
                 📸 CAPTURAR AHORA
               </button>
             </>
@@ -85,9 +96,9 @@ export default function CuestionarioFoto({ onNext, disabled }) {
         </div>
       ) : (
         <div className="preview-wrapper">
-          <img src={fotoPreview} alt="Vista previa" className="foto-preview-img" />
+          <img src={fotoPreview} alt="Vista previa" className="foto-preview-img" style={{width: '100%', borderRadius: '8px'}} />
           {!disabled && (
-            <button className="btn-reintentar-text" onClick={reintentar}>
+            <button className="btn-reintentar-text" onClick={reintentar} style={{marginTop: '10px', display: 'block'}}>
               🔄 Reintentar fotografía
             </button>
           )}

@@ -25,21 +25,29 @@ export default function SurveyView() {
   const [regionActiva, setRegionActiva] = useState("");
   const [busquedaComuna, setBusquedaComuna] = useState("");
 
+  const [choferes, setChoferes] = useState([]);
+
   const { idEncuesta, idUsuario } = useParams();
   const navigate = useNavigate();
 
   // 1. Recuperamos los datos del vendedor desde el sessionStorage
   const nombreVendedor = sessionStorage.getItem("nombreencuestado");
+  const idSupervisor = sessionStorage.getItem("id_supervisor");
 
   useEffect(() => {
-  if (!idUsuario) {
-    console.error("ERROR: No hay idUsuario en la URL");
-    navigate("/");
-    return;
-  }
+  if (!idUsuario) { navigate("/"); return; }
 
   async function cargarDatosIniciales() {
     try {
+      const { data: dataChoferes, error: errChoferes } = await supabase
+          .from("usuario")
+          .select("nombre")
+          .eq("rol", "chofer"); // Filtramos por el rol exacto de tu captura
+
+        if (!errChoferes) {
+          setChoferes(dataChoferes);
+        }
+
       const listaTotal = await getPreguntas();
       
       // LOGS CRUCIALES - Mira estos en la consola (F12)
@@ -56,14 +64,45 @@ export default function SurveyView() {
 
       console.log("3. Preguntas después de filtrar:", filtradas);
 
-      if (filtradas.length === 0) {
+      // orden personalizado de preguntas
+      const mapaOrden = {
+        15: 1,
+        32: 2,
+        18: 3,
+        19: 4,
+        16: 5,
+        17: 6,
+        20: 7,
+        21: 8,
+        23: 9,
+        24: 10,
+        33: 11,
+        25: 12,
+        34: 13,
+        26: 14,
+        35: 15,
+        29: 16,
+        36: 17,
+        37: 18,
+        38: 19,
+        28: 20,
+        27: 21
+      };
+
+      const ordenadas = filtradas.sort((a, b) => {
+        const ordenA = mapaOrden[a.idpregunta] || 50;
+        const ordenB = mapaOrden[b.idpregunta] || 50;
+        return ordenA - ordenB;
+      });
+
+      if (ordenadas.length === 0) {
         console.warn("AVISO: El filtro dejó 0 preguntas. Revisa si en Supabase escribiste 'operario' igual que en la URL.");
       }
 
-      setPreguntas(filtradas);
+      setPreguntas(ordenadas);
 
       const map = {};
-      for (const p of filtradas) {
+      for (const p of ordenadas) {
         if (p.tipopregunta === "unica" || p.tipopregunta === "multiple") {
           map[p.idpregunta] = await getOpciones(p.idpregunta);
         }
@@ -121,101 +160,130 @@ export default function SurveyView() {
     }
   };
 
- const finalizarEncuesta = async () => {
-    // 1. VALIDACIÓN (Sin cambios)
+const finalizarEncuesta = async () => {
+  // 1. VALIDACIÓN (Obligatoriedad)
+  for (const p of preguntas) {
+    const valor = respuestasValues[p.idpregunta];
+    const esOpcional = p.descripcion?.toLowerCase().includes("transporte");
+    if (!esOpcional && (valor === null || valor === undefined || valor === "")) {
+      alert(`La pregunta "${p.descripcion}" es obligatoria.`);
+      return;
+    }
+  }
+
+  try {
+    setIsProcessing(true);
+    const listaParaCorreo = [];
+    const esOperario = idEncuesta?.toLowerCase().includes("operario");
+
+    // --- BUSCAR EL NOMBRE DEL CHOFER ANTES DE CREAR LA CABECERA ---
+    const nombreRealChofer = respuestasValues[15] || nombreVendedor || "Sin Nombre";
+
+    // --- A. CREAR EL ENCABEZADO (CABECERA) ---
+    // Esto se hace UNA SOLA VEZ antes del bucle de preguntas
+    const { data: cabecera, error: errCabecera } = await supabase
+      .from('formularios_hechos')
+      .insert([{
+        id_usuario: parseInt(idUsuario),
+        tipo_formulario: idEncuesta,
+        nombre_encuestado: nombreRealChofer,
+        id_supervisor: parseInt(idSupervisor)
+      }])
+      .select()
+      .single();
+
+    if (errCabecera) throw new Error("Error al crear cabecera: " + errCabecera.message);
+    const nuevoIdFormulario = cabecera.id_formulario;
+
+    // --- B. BUCLE DE PREGUNTAS ---
     for (const p of preguntas) {
       const valor = respuestasValues[p.idpregunta];
-      const esOpcional = p.descripcion?.toLowerCase().includes("transporte");
+      const tipo = p.tipopregunta ? p.tipopregunta.trim().toLowerCase() : "";
+      let urlFoto = null;
+      let textoCorreo = valor;
 
-      if (!esOpcional && (valor === null || valor === undefined || valor === "")) {
-        alert(`La pregunta "${p.descripcion}" es obligatoria.`);
-        return;
-      }
-    }
-
-    try {
-      setIsProcessing(true);
-      const listaParaCorreo = [];
-
-      for (const p of preguntas) {
-        const valor = respuestasValues[p.idpregunta];
-        const tipo = p.tipopregunta ? p.tipopregunta.trim().toLowerCase() : "";
-        let urlFoto = null;
-        let textoCorreo = valor;
-
-        // Template base del payload
-        const basePayload = {
-          idpregunta: p.idpregunta,
-          id_usuario: parseInt(idUsuario),
-          fecha: new Date().toISOString(),
-          fotourl: null,
-          idopcion: null,
-          descripcion: null
-        };
-
-        // 2. LÓGICA DE ASIGNACIÓN Y GUARDADO
-        if ((tipo === "foto" || tipo === "firma") && valor) {
-          urlFoto = await subirFoto(valor, sessionStorage.getItem("nombreencuestado") || "Usuario");
-          const payload = { ...basePayload, fotourl: urlFoto };
-          await insertarRespuesta(payload, idEncuesta); // Guardado normal
-        } 
-        else if (tipo === "unica") {
-          const payload = { ...basePayload, idopcion: parseInt(valor) || null };
-          await insertarRespuesta(payload, idEncuesta); // Guardado normal
-
-          // Preparar texto para correo
-          const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === String(valor));
-          textoCorreo = opt ? opt.descripcion : valor;
-        } 
-        else if (tipo === "multiple" && valor) {
-          // --- OPCIÓN A: UNA FILA POR OPCIÓN ---
-          const ids = String(valor).split(",");
-          const nombresSeleccionados = [];
-
-          for (const idStr of ids) {
-            const idLimpio = idStr.trim();
-            const payloadMultiple = { ...basePayload, idopcion: parseInt(idLimpio) };
-            
-            // Insertamos cada opción como una fila independiente
-            await insertarRespuesta(payloadMultiple, idEncuesta);
-
-            // Buscamos el nombre para el correo
-            const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === idLimpio);
-            nombresSeleccionados.push(opt ? opt.descripcion : idLimpio);
-          }
-          textoCorreo = nombresSeleccionados.join(", ");
-        }
-        else {
-          // Texto normal
-          const payload = { ...basePayload, descripcion: valor ? String(valor) : null };
-          await insertarRespuesta(payload, idEncuesta); // Guardado normal
-        }
-
-        // 3. PREPARACIÓN PARA CORREO (Se llena la lista con el texto procesado arriba)
-        listaParaCorreo.push({
-          pregunta: p.descripcion,
-          respuesta: urlFoto || textoCorreo,
-          fotourl: urlFoto
-        });
-      }
-
-      // 4. ENVÍO DE CORREO (FUERA DEL BUCLE)
-      // Solo si NO es operario
-      if (idEncuesta && !idEncuesta.toLowerCase().includes("operario")) {
-        await enviarFormulario(listaParaCorreo);
-        console.log("Correo enviado con éxito.");
-      } else {
-        console.log("Modo operario: No se envía correo.");
-      }
+      // Template base del payload con el VÍNCULO MÁGICO
+      const basePayload = {
+        id_formulario_vinculado: nuevoIdFormulario,
+        idpregunta: p.idpregunta,
+        fotourl: null,
+        idopcion: null,
+        descripcion: null
+      };
       
-      navigate("/gracias");
+      // --- LÓGICA DE ASIGNACIÓN Y GUARDADO ---
 
-    } catch (error) {
-      console.error("Error en el proceso:", error);
-      alert("Error al procesar: " + error.message);
-    } finally {
-      setIsProcessing(false);
+      // 1. Fotos y Firmas con ESCUDO ANTIBOMBAS
+      if ((tipo === "foto" || tipo === "firma") && valor) {
+        // Aceptamos el valor si es un archivo (File) o si es un base64 (string)
+        if (valor instanceof File || (typeof valor === 'string' && valor.includes(','))) {
+          try {
+            console.log("Subiendo evidencia al Bucket...");
+            urlFoto = await subirFoto(valor, nombreVendedor || "Usuario");
+          } catch (e) {
+            console.error("Error subiendo imagen:", e);
+          }
+        } else {
+          // Si ya es una URL (porque ya se subió), la mantenemos
+          urlFoto = typeof valor === 'string' && valor.startsWith('http') ? valor : null;
+        }
+        
+        const payload = { ...basePayload, fotourl: urlFoto };
+        await insertarRespuesta(payload, idEncuesta);
+      }
+
+      // 2. Única (Radio Buttons)
+      else if (tipo === "unica") {
+        const payload = { ...basePayload, idopcion: parseInt(valor) || null };
+        await insertarRespuesta(payload, idEncuesta);
+        const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === String(valor));
+        textoCorreo = opt ? opt.descripcion : valor;
+      } 
+      
+      // 3. Múltiple (Checkboxes)
+      else if (tipo === "multiple" && valor) {
+        const ids = String(valor).split(",");
+        const nombresSeleccionados = [];
+        for (const idStr of ids) {
+          const idLimpio = idStr.trim();
+          const payloadMultiple = { ...basePayload, idopcion: parseInt(idLimpio) };
+          await insertarRespuesta(payloadMultiple, idEncuesta);
+          const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === idLimpio);
+          nombresSeleccionados.push(opt ? opt.descripcion : idLimpio);
+        }
+        textoCorreo = nombresSeleccionados.join(", ");
+      } 
+      
+      // 4. Texto Normal
+      else {
+        const payload = { ...basePayload, descripcion: valor ? String(valor) : null };
+        await insertarRespuesta(payload, idEncuesta);
+      }
+
+      // Llenamos la lista para el correo (solo se usará si no es operario)
+      listaParaCorreo.push({
+        pregunta: p.descripcion,
+        respuesta: urlFoto || textoCorreo,
+        fotourl: urlFoto
+      });
     }
+
+    // --- C. ENVÍO DE CORREO (SOLO VENDEDORES) ---
+    if (!esOperario) {
+      await enviarFormulario(listaParaCorreo);
+      console.log("Correo enviado al supervisor.");
+    } else {
+      console.log("Modo operario: Guardado en DB finalizado, sin correo.");
+    }
+    
+    navigate("/gracias");
+
+  } catch (error) {
+    console.error("Error crítico:", error);
+    alert("Hubo un problema: " + error.message);
+  } finally {
+    setIsProcessing(false);
+  }
 };
 
   return (
@@ -247,11 +315,31 @@ export default function SurveyView() {
               />
             )}
 
-            {/* 2. CASO TEXTO (Aquí metemos Región, Comuna y Validaciones) */}
             {p.tipopregunta === "texto" && (
               <>
-                {/* SUB-CASO: REGIÓN (Select simple) */}
-                {(p.descripcion.toLowerCase().includes("región") || p.descripcion.toLowerCase().includes("region")) ? (
+              {console.log(`Evaluando pregunta ID ${p.idpregunta}: "${p.descripcion}"`)}
+              {/* 1. CASO CHOFER: Usamos una búsqueda más flexible */}
+              {(p.descripcion.toLowerCase().includes("chofer") || p.descripcion.toLowerCase().includes("conductor")) ? (
+                <select 
+                  className="input-texto-moderno"
+                  style={{ border: '2px solid #007bff' }} // Un borde azul para identificarlo
+                  value={respuestasValues[p.idpregunta] || ""}
+                  onChange={(e) => handleCambioRespuesta(p.idpregunta, e.target.value)}
+                >
+                  <option value="">-- Seleccione un Chofer --</option>
+                  {choferes.length > 0 ? (
+                    choferes.map((chofer, idx) => (
+                      <option key={idx} value={chofer.nombre}>
+                        {chofer.nombre}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>Cargando choferes...</option>
+                  )}
+                </select>
+              ) :
+                /* CASO: REGION (Buscador) */
+                (p.descripcion.toLowerCase().includes("región") || p.descripcion.toLowerCase().includes("region")) ? (
                   <select 
                     className="input-texto-moderno"
                     value={respuestasValues[p.idpregunta] || ""}
@@ -260,7 +348,6 @@ export default function SurveyView() {
                       setRegionActiva(nuevaRegion);
                       handleCambioRespuesta(p.idpregunta, nuevaRegion);
                       
-                      // Resetear comuna si cambia región
                       const pComuna = preguntas.find(preg => preg.descripcion.toLowerCase().includes("comuna"));
                       if (pComuna) {
                         handleCambioRespuesta(pComuna.idpregunta, "");
