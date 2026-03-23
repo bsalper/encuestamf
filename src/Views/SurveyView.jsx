@@ -73,7 +73,7 @@ export default function SurveyView() {
         16: 5,
         17: 6,
         20: 7,
-        21: 8,
+        21: 8, 
         23: 9,
         24: 10,
         33: 11,
@@ -215,19 +215,27 @@ const finalizarEncuesta = async () => {
 
       // 1. Fotos y Firmas con ESCUDO ANTIBOMBAS
       if ((tipo === "foto" || tipo === "firma") && valor) {
-        // Aceptamos el valor si es un archivo (File) o si es un base64 (string)
-        if (valor instanceof File || (typeof valor === 'string' && valor.includes(','))) {
+        let archivoParaSubir = valor;
+        
+        // Extraemos el blob si viene del componente de Firma
+        if (valor.blob) {
+          archivoParaSubir = valor.blob;
+        }
+
+        // Verificamos si es algo "subible" (Blob, File o Base64)
+        if (archivoParaSubir instanceof Blob || archivoParaSubir instanceof File || (typeof archivoParaSubir === 'string' && archivoParaSubir.includes(','))) {
           try {
-            console.log("Subiendo evidencia al Bucket...");
-            urlFoto = await subirFoto(valor, nombreVendedor || "Usuario");
+            console.log(`Subiendo ${tipo} al Bucket...`);
+            urlFoto = await subirFoto(archivoParaSubir, nombreVendedor || "Usuario");
           } catch (e) {
             console.error("Error subiendo imagen:", e);
           }
         } else {
-          // Si ya es una URL (porque ya se subió), la mantenemos
-          urlFoto = typeof valor === 'string' && valor.startsWith('http') ? valor : null;
+          // Si por alguna razón ya es una URL, la mantenemos
+          urlFoto = typeof archivoParaSubir === 'string' && archivoParaSubir.startsWith('http') ? archivoParaSubir : null;
         }
         
+        // IMPORTANTE: Guardamos en la DB con la URL obtenida
         const payload = { ...basePayload, fotourl: urlFoto };
         await insertarRespuesta(payload, idEncuesta);
       }
@@ -286,13 +294,14 @@ const finalizarEncuesta = async () => {
   }
 };
 
+  const MAPA_ORDEN = {
+    15: 1, 32: 2, 18: 3, 19: 4, 16: 5, 17: 6, 20: 7, 
+    21: 8, 23: 9, 24: 10, 33: 11, 25: 12, 34: 13, 26: 14, 
+    35: 15, 29: 16, 36: 17, 37: 18, 38: 19, 28: 20, 27: 21 
+  };
+
   return (
-    <div 
-      className="cuestionario-container" 
-      style={{ 
-        backgroundImage: "url('/Fondo.png')", 
-      }}
-    >
+    <div className="cuestionario-container" style={{ backgroundImage: "url('/Fondo.png')" }}>
       <div className="cuestionario-container">
         <h1 className="titulo-encuesta">
           {String(idEncuesta).toLowerCase().includes("operario") ? "Checklist Camión" : "Registro de Visita"}
@@ -302,165 +311,126 @@ const finalizarEncuesta = async () => {
           <strong>{nombreVendedor}</strong>
         </div>
 
-        {preguntas.map((p) => (
-          <div key={p.idpregunta} className="cuestionario-card section-pregunta">
-            <h3 className="pregunta-descripcion">{p.descripcion}</h3>
+        {preguntas.map((p, index) => {
+          const esOperario = idEncuesta?.toLowerCase().includes("operario");
+          // Usamos la constante que sacamos fuera
+          const numeroOrden = MAPA_ORDEN[p.idpregunta];
 
-            {/* 1. CASO ÚNICA (Radios) */}
-            {p.tipopregunta === "unica" && (
-              <CuestionarioUnico 
-                opciones={opcionesMap[p.idpregunta] || []} 
-                onNext={(val) => handleCambioRespuesta(p.idpregunta, val)} 
-                currentValue={respuestasValues[p.idpregunta]}
-              />
-            )}
+          return (
+            <div key={p.idpregunta}>
+              {/* SECCIÓN 1: Solo Operario, Orden 1 */}
+              {esOperario && numeroOrden === 1 && (
+                <div className="seccion-titulo-container">
+                  <h2 className="titulo-seccion-moderno">Tipo de documentación y seguridad</h2>
+                  <hr className="separador-verde" />
+                </div>
+              )}
 
-            {p.tipopregunta === "texto" && (
-              <>
-              {console.log(`Evaluando pregunta ID ${p.idpregunta}: "${p.descripcion}"`)}
-              {/* 1. CASO CHOFER: Usamos una búsqueda más flexible */}
-              {(p.descripcion.toLowerCase().includes("chofer") || p.descripcion.toLowerCase().includes("conductor")) ? (
-                <select 
-                  className="input-texto-moderno"
-                  style={{ border: '2px solid #007bff' }} // Un borde azul para identificarlo
-                  value={respuestasValues[p.idpregunta] || ""}
-                  onChange={(e) => handleCambioRespuesta(p.idpregunta, e.target.value)}
-                >
-                  <option value="">-- Seleccione un Chofer --</option>
-                  {choferes.length > 0 ? (
-                    choferes.map((chofer, idx) => (
-                      <option key={idx} value={chofer.nombre}>
-                        {chofer.nombre}
-                      </option>
-                    ))
-                  ) : (
-                    <option disabled>Cargando choferes...</option>
-                  )}
-                </select>
-              ) :
-                /* CASO: REGION (Buscador) */
-                (p.descripcion.toLowerCase().includes("región") || p.descripcion.toLowerCase().includes("region")) ? (
-                  <select 
-                    className="input-texto-moderno"
-                    value={respuestasValues[p.idpregunta] || ""}
-                    onChange={(e) => {
-                      const nuevaRegion = e.target.value;
-                      setRegionActiva(nuevaRegion);
-                      handleCambioRespuesta(p.idpregunta, nuevaRegion);
-                      
-                      const pComuna = preguntas.find(preg => preg.descripcion.toLowerCase().includes("comuna"));
-                      if (pComuna) {
-                        handleCambioRespuesta(pComuna.idpregunta, "");
-                        setBusquedaComuna("");
-                      }
-                    }}
-                  >
-                    <option value="">-- Seleccione Región --</option>
-                    {regionesChile.map(r => (
-                      <option key={r.region} value={r.region}>{r.region}</option>
-                    ))}
-                  </select>
-                ) 
-                /* SUB-CASO: COMUNA (Buscador) */
-                : p.descripcion.toLowerCase().includes("comuna") ? (
-                  <div className="searchable-select-container">
-                    <input
-                      type="text"
-                      className="input-texto-moderno"
-                      placeholder={regionActiva ? "Escribe para buscar..." : "Seleccione región primero"}
-                      value={respuestasValues[p.idpregunta] || busquedaComuna}
-                      disabled={!regionActiva}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setBusquedaComuna(val);
-                        if (val === "") handleCambioRespuesta(p.idpregunta, "");
-                      }}
-                    />
-                    {regionActiva && busquedaComuna && !respuestasValues[p.idpregunta] && (
-                      <ul className="sugerencias-lista">
-                        {regionesChile
-                          .find(r => r.region === regionActiva)
-                          ?.comunas.filter(c => c.toLowerCase().includes(busquedaComuna.toLowerCase()))
-                          .map(comuna => (
-                            <li key={comuna} onClick={() => {
-                              handleCambioRespuesta(p.idpregunta, comuna);
-                              setBusquedaComuna(comuna);
-                            }}>
-                              {comuna}
-                            </li>
-                          ))
-                        }
-                      </ul>
-                    )}
-                    {respuestasValues[p.idpregunta] && (
-                      <button className="btn-limpiar-seleccion" onClick={() => {
-                        handleCambioRespuesta(p.idpregunta, "");
-                        setBusquedaComuna("");
-                      }}>
-                        ✕ Cambiar comuna
-                      </button>
-                    )}
-                  </div>
-                ) 
-                /* SUB-CASO: TEXTO NORMAL (RUT, Teléfono, Email) */
-                : (
-                  <CuestionarioTexto 
-                    onNext={(val) => handleCambioRespuesta(p.idpregunta, val)}
-                    placeholder={p.descripcion}
-                    tipoValidacion={
-                      p.descripcion.toLowerCase().includes("rut") ? "rut" : 
-                      (p.descripcion.toLowerCase().includes("teléfono") || p.descripcion.toLowerCase().includes("celular")) ? "telefono" :
-                      (p.descripcion.toLowerCase().includes("correo") || p.descripcion.toLowerCase().includes("email")) ? "email" : 
-                      "texto"
-                    }
+              {/* SECCIÓN 2: Solo Operario, Orden 8 */}
+              {esOperario && numeroOrden === 8 && (
+                <div className="seccion-titulo-container" style={{ marginTop: '40px' }}>
+                  <h2 className="titulo-seccion-moderno">Revisión exterior</h2>
+                  <hr className="separador-verde" />
+                </div>
+              )}
+
+              <div className="cuestionario-card section-pregunta">
+                <h3 className="pregunta-descripcion">{p.descripcion}</h3>
+
+                {/* CASO ÚNICA */}
+                {p.tipopregunta === "unica" && (
+                  <CuestionarioUnico 
+                    opciones={opcionesMap[p.idpregunta] || []} 
+                    onNext={(val) => handleCambioRespuesta(p.idpregunta, val)} 
                     currentValue={respuestasValues[p.idpregunta]}
                   />
                 )}
-              </>
-            )}
 
-            {/* 3. CASO FOTO */}
-            {p.tipopregunta === "foto" && (
-              <CuestionarioFoto 
-                onNext={(val) => handleCambioRespuesta(p.idpregunta, val)} 
-                disabled={isProcessing} 
-              />
-            )}
+                {/* CASO FOTO */}
+                {p.tipopregunta === "foto" && (
+                  <CuestionarioFoto onNext={(val) => handleCambioRespuesta(p.idpregunta, val)} />
+                )}
 
-            {/* 4. CASO FIRMA (Diferenciada por descripción) */}
-            {p.tipopregunta === "firma" && (
-              <div className="contenedor-firma-especifico">
-                {/* Agregamos un título pequeño arriba si la descripción no es clara */}
-                <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '5px' }}>
-                  Por favor, firme en el recuadro blanco:
-                </p>
-                
-                <CuestionarioFirma 
-                  key={`firma-${p.idpregunta}`} // Key única para que React no recicle el canvas
-                  onNext={(val) => handleCambioRespuesta(p.idpregunta, val)}
-                  isProcessing={isProcessing}
-                />
-                
-                {/* Feedback visual de que la firma se capturó */}
-                {respuestasValues[p.idpregunta] && (
-                  <span style={{ color: 'green', fontSize: '0.8rem' }}>
-                    ✓ Firma registrada
-                  </span>
+                {/* CASO FIRMA */}
+                {p.tipopregunta === "firma" && (
+                  <CuestionarioFirma onNext={(val) => handleCambioRespuesta(p.idpregunta, val)} />
+                )}
+
+                {/* CASO MÚLTIPLE */}
+                {p.tipopregunta === "multiple" && (
+                  <CuestionarioMultiple 
+                    opciones={opcionesMap[p.idpregunta] || []} 
+                    currentValue={respuestasValues[p.idpregunta] || ""}
+                    onChange={(val) => handleCambioRespuesta(p.idpregunta, val)}
+                  />
+                )}
+
+                {/* CASO TEXTO (Chofer, Región y Comuna filtrable) */}
+                {p.tipopregunta === "texto" && (
+                  <>
+                    {(p.descripcion.toLowerCase().includes("chofer") || p.descripcion.toLowerCase().includes("conductor")) ? (
+                      <select 
+                        className="input-texto-moderno"
+                        value={respuestasValues[p.idpregunta] || ""}
+                        onChange={(e) => handleCambioRespuesta(p.idpregunta, e.target.value)}
+                      >
+                        <option value="">-- Seleccione un Chofer --</option>
+                        {choferes.map((c, i) => <option key={i} value={c.nombre}>{c.nombre}</option>)}
+                      </select>
+                    ) : (p.descripcion.toLowerCase().includes("región") || p.descripcion.toLowerCase().includes("region")) ? (
+                      <select 
+                        className="input-texto-moderno"
+                        value={respuestasValues[p.idpregunta] || ""}
+                        onChange={(e) => {
+                          setRegionActiva(e.target.value);
+                          handleCambioRespuesta(p.idpregunta, e.target.value);
+                          // Limpiar comuna si cambia la región
+                          const pComuna = preguntas.find(preg => preg.descripcion.toLowerCase().includes("comuna"));
+                          if (pComuna) handleCambioRespuesta(pComuna.idpregunta, "");
+                        }}
+                      >
+                        <option value="">-- Seleccione Región --</option>
+                        {regionesChile.map(r => <option key={r.region} value={r.region}>{r.region}</option>)}
+                      </select>
+                    ) : p.descripcion.toLowerCase().includes("comuna") ? (
+                      <div className="searchable-select-container">
+                        <input 
+                          type="text" 
+                          className="input-texto-moderno"
+                          placeholder={regionActiva ? "Escribe para buscar comuna..." : "Seleccione región primero"}
+                          value={respuestasValues[p.idpregunta] || busquedaComuna}
+                          disabled={!regionActiva}
+                          onChange={(e) => setBusquedaComuna(e.target.value)}
+                        />
+                        {regionActiva && busquedaComuna && !respuestasValues[p.idpregunta] && (
+                          <ul className="sugerencias-lista">
+                            {regionesChile
+                              .find(r => r.region === regionActiva)
+                              ?.comunas.filter(c => c.toLowerCase().includes(busquedaComuna.toLowerCase()))
+                              .map(comuna => (
+                                <li key={comuna} onClick={() => {
+                                  handleCambioRespuesta(p.idpregunta, comuna);
+                                  setBusquedaComuna(comuna);
+                                }}>
+                                  {comuna}
+                                </li>
+                              ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : (
+                      <CuestionarioTexto 
+                        onNext={(val) => handleCambioRespuesta(p.idpregunta, val)}
+                        currentValue={respuestasValues[p.idpregunta]}
+                        placeholder={p.descripcion}
+                      />
+                    )}
+                  </>
                 )}
               </div>
-            )}
-
-            {/* 5. CASO MÚLTIPLE (Checkboxes) */}
-            {p.tipopregunta === "multiple" && (
-              <CuestionarioMultiple 
-                opciones={opcionesMap[p.idpregunta] || []} 
-                // Enviamos el valor actual (será un string separado por comas)
-                currentValue={respuestasValues[p.idpregunta] || ""}
-                onChange={(val) => handleCambioRespuesta(p.idpregunta, val)} 
-              />
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
 
         <button 
           className="btn-siguiente btn-finalizar" 

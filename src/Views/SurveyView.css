@@ -1,4 +1,5 @@
 /* 1. ESTRUCTURA PRINCIPAL */
+/* 1. ESTRUCTURA PRINCIPAL */
 .cuestionario-container {
   display: flex;
   flex-direction: column;
@@ -6,6 +7,27 @@
   min-height: 100vh;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   padding: 20px;
+  position: relative; /* Importante para el overlay */
+  background-attachment: fixed;
+  background-size: 300px; /* Tamaño del logo de fondo */
+}
+
+/* Capa blanca para que los logos no molesten al leer */
+.cuestionario-container::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 0;
+}
+
+/* Asegura que todo el contenido flote sobre la capa blanca */
+.cuestionario-container > div, 
+.cuestionario-container > h1, 
+.cuestionario-container > button {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 500px; /* Unificamos el ancho máximo */
 }
 
 .titulo-encuesta {
@@ -16,6 +38,31 @@
   border: 1px solid #1FB436;
   padding: 8px 16px;
   border-radius: 50px;
+}
+
+/* NUEVO: ESTILO SECCIONES */
+.seccion-titulo-container {
+  width: 100%;
+  max-width: 500px;
+  margin: 35px 0 15px 0;
+  padding: 12px 20px;
+  background: #ffffff;
+  border-left: 6px solid #1FB436;
+  border-radius: 4px 12px 12px 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.titulo-seccion-moderno {
+  color: #043D30;
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.separador-verde {
+  display: none; /* Quitamos la línea de abajo porque el borde lateral es suficiente */
 }
 
 .vendedor-badge {
@@ -30,13 +77,20 @@
 
 /* 2. TARJETAS DE PREGUNTA */
 .cuestionario-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff !important;
   padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(4,61,48,0.7);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(4, 61, 48, 0.2); 
   width: 100%;
   max-width: 500px;
   margin-bottom: 20px;
+  border: 1px solid #eee;
+  
+  /* Centrado de contenido */
+  display: flex;
+  flex-direction: column;
+  align-items: center; 
+  text-align: center;
 }
 
 .pregunta-descripcion {
@@ -180,7 +234,7 @@
 
 /* RESPONSIVE */
 @media (max-width: 480px) {
-  .cuestionario-card { 
+  .cuestionario-card, .seccion-titulo-container { 
     padding: 20px;
     max-width: 300px;
   }
