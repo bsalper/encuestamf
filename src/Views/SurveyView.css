@@ -257,6 +257,11 @@
     max-width: 300px;
   }
 
+  .cuestionario-wrapper {
+    background-size: 250px !important; 
+    background-attachment: scroll;
+  }
+
   .titulo-encuesta { font-size: 1.4rem; }
 
   .btn-finalizar {
