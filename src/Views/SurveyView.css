@@ -259,7 +259,8 @@
 
   .cuestionario-wrapper {
     background-size: 750px !important; 
-    background-attachment: scroll;
+    background-repeat: repeat;
+    background-attachment: fixed !important;
   }
 
   .titulo-encuesta { font-size: 1.4rem; }
