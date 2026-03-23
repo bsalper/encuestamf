@@ -297,11 +297,11 @@ const finalizarEncuesta = async () => {
   const MAPA_ORDEN = {
     15: 1, 32: 2, 18: 3, 19: 4, 16: 5, 17: 6, 20: 7, 
     21: 8, 23: 9, 24: 10, 33: 11, 25: 12, 34: 13, 26: 14, 
-    35: 15, 29: 16, 36: 17, 37: 18, 38: 19, 28: 20, 27: 21 
+    35: 15, 29: 16, 36: 17, 37: 18, 38: 19, 28: 20, 27: 21, 30: 22, 31: 23
   };
 
   return (
-    <div className="cuestionario-container" style={{ backgroundImage: "url('/Fondo.png')" }}>
+    <div className="cuestionario-wrapper">
       <div className="cuestionario-container">
         <h1 className="titulo-encuesta">
           {String(idEncuesta).toLowerCase().includes("operario") ? "Checklist Camión" : "Registro de Visita"}
