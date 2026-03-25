@@ -175,12 +175,18 @@ const finalizarEncuesta = async () => {
     setIsProcessing(true);
     const listaParaCorreo = [];
     const esOperario = idEncuesta?.toLowerCase().includes("operario");
+    const esLimpieza = idEncuesta?.toLowerCase().includes("limpieza");
 
-    // --- BUSCAR EL NOMBRE DEL CHOFER ANTES DE CREAR LA CABECERA ---
-    const nombreRealChofer = respuestasValues[15] || nombreVendedor || "Sin Nombre";
+    // --- 1. DETERMINAR LA TABLA DESTINO (MODIFICADO) ---
+    let tablaDestino = "respuestas_operario";
+    if (esLimpieza) tablaDestino = "respuestas_limpieza";
+    if (!esOperario && !esLimpieza) tablaDestino = "respuesta";
+
+    // --- 2. BUSCAR EL NOMBRE DEL CHOFER (MODIFICADO para usar ID 40 en limpieza) ---
+    const idNombre = esLimpieza ? 40 : 15;
+    const nombreRealChofer = respuestasValues[idNombre] || nombreVendedor || "Sin Nombre";
 
     // --- A. CREAR EL ENCABEZADO (CABECERA) ---
-    // Esto se hace UNA SOLA VEZ antes del bucle de preguntas
     const { data: cabecera, error: errCabecera } = await supabase
       .from('formularios_hechos')
       .insert([{
@@ -212,12 +218,10 @@ const finalizarEncuesta = async () => {
       };
       
       // --- LÓGICA DE ASIGNACIÓN Y GUARDADO ---
-
-      // 1. Fotos y Firmas con ESCUDO ANTIBOMBAS
+      // 1. Fotos y Firmas
       if ((tipo === "foto" || tipo === "firma") && valor) {
         let archivoParaSubir = valor;
         
-        // Extraemos el blob si viene del componente de Firma
         if (valor.blob) {
           archivoParaSubir = valor.blob;
         }
@@ -237,13 +241,13 @@ const finalizarEncuesta = async () => {
         
         // IMPORTANTE: Guardamos en la DB con la URL obtenida
         const payload = { ...basePayload, fotourl: urlFoto };
-        await insertarRespuesta(payload, idEncuesta);
+        await insertarRespuesta(payload, tablaDestino);
       }
 
       // 2. Única (Radio Buttons)
       else if (tipo === "unica") {
         const payload = { ...basePayload, idopcion: parseInt(valor) || null };
-        await insertarRespuesta(payload, idEncuesta);
+        await insertarRespuesta(payload, tablaDestino);
         const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === String(valor));
         textoCorreo = opt ? opt.descripcion : valor;
       } 
@@ -255,7 +259,7 @@ const finalizarEncuesta = async () => {
         for (const idStr of ids) {
           const idLimpio = idStr.trim();
           const payloadMultiple = { ...basePayload, idopcion: parseInt(idLimpio) };
-          await insertarRespuesta(payloadMultiple, idEncuesta);
+          await insertarRespuesta(payloadMultiple, tablaDestino);
           const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === idLimpio);
           nombresSeleccionados.push(opt ? opt.descripcion : idLimpio);
         }
@@ -265,10 +269,10 @@ const finalizarEncuesta = async () => {
       // 4. Texto Normal
       else {
         const payload = { ...basePayload, descripcion: valor ? String(valor) : null };
-        await insertarRespuesta(payload, idEncuesta);
+        await insertarRespuesta(payload, tablaDestino);
       }
 
-      // Llenamos la lista para el correo (solo se usará si no es operario)
+      // Llenamos la lista para el correo
       listaParaCorreo.push({
         pregunta: p.descripcion,
         respuesta: urlFoto || textoCorreo,
@@ -277,7 +281,7 @@ const finalizarEncuesta = async () => {
     }
 
     // --- C. ENVÍO DE CORREO (SOLO VENDEDORES) ---
-    if (!esOperario) {
+    if (!esOperario && !esLimpieza) {
       await enviarFormulario(listaParaCorreo);
       console.log("Correo enviado al supervisor.");
     } else {
@@ -374,7 +378,7 @@ const finalizarEncuesta = async () => {
                         value={respuestasValues[p.idpregunta] || ""}
                         onChange={(e) => handleCambioRespuesta(p.idpregunta, e.target.value)}
                       >
-                        <option value="">-- Seleccione un Chofer --</option>
+                        <option value="">- Seleccione un Chofer -</option>
                         {choferes.map((c, i) => <option key={i} value={c.nombre}>{c.nombre}</option>)}
                       </select>
                     ) : (p.descripcion.toLowerCase().includes("región") || p.descripcion.toLowerCase().includes("region")) ? (

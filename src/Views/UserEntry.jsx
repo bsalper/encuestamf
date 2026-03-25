@@ -4,13 +4,14 @@ import { getUsuarios } from "../Servicios/PreguntaS"; // Nombre de función actu
 
 export default function UserEntry() {
   const { idEncuesta } = useParams();
-  const [usuarios, setUsuarios] = useState([]); // Nombre más genérico
+  const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const navigate = useNavigate();
 
   const configLabels = {
     vendedor: { titulo: "Bienvenido/a", subtitulo: "Selecciona tu nombre para comenzar", carga: "vendedores" },
-    operario: { titulo: "Checklist de Camiones", subtitulo: "Confirma tu identidad para iniciar el control", carga: "datos" }
+    operario: { titulo: "Checklist de Camiones", subtitulo: "Confirma tu identidad para iniciar el control", carga: "datos" },
+    limpieza: { titulo: "Checklist de Limpieza", subtitulo: "Confirma tu identidad para iniciar el control", carga: "datos" }
   };
 
   const labels = configLabels[idEncuesta] || configLabels.vendedor;
@@ -18,16 +19,15 @@ export default function UserEntry() {
   useEffect(() => {
     async function cargar() {
       try {
-        if (idEncuesta === 'operario') {
+        if (idEncuesta === 'operario' || idEncuesta === 'limpieza') {
           const diegoFijo = [{ 
             id_usuario: 999, 
             nombre: "Diego García",
             zona: "Quilicura",
-            id_supervisor: 1 // <--- AGREGA ESTO (Usa un ID que exista en tu tabla 'supervisor')
+            id_supervisor: 1
           }];
           setUsuarios(diegoFijo);
         } else {
-          // Llamamos a la nueva función que apunta a la tabla 'usuario'
           const lista = await getUsuarios();
           setUsuarios(lista);
         }
