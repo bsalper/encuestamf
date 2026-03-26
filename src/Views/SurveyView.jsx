@@ -17,6 +17,13 @@ import CuestionarioTexto from "../Components/Cuestionario/CuestionarioTexto";
 import CuestionarioMultiple from "../Components/Cuestionario/CuestionarioMultiple";
 import CuestionarioFirma from "../Components/Cuestionario/CuestionarioFirma";
 
+// orden personalizado de preguntas
+const MAPA_ORDEN = {
+  15: 1, 32: 2, 18: 3, 19: 4, 16: 5, 17: 6, 20: 7, 21: 8, 23: 9,
+  24: 10, 33: 11, 25: 12, 34: 13, 26: 14, 35: 15, 29: 16, 36: 17,
+  37: 18, 38: 19, 28: 20, 27: 21
+};
+
 export default function SurveyView() {
   const [preguntas, setPreguntas] = useState([]);
   const [opcionesMap, setOpcionesMap] = useState({});
@@ -26,6 +33,7 @@ export default function SurveyView() {
   const [busquedaComuna, setBusquedaComuna] = useState("");
 
   const [choferes, setChoferes] = useState([]);
+  const [auxiliares, setAuxiliares] = useState([]);
 
   const { idEncuesta, idUsuario } = useParams();
   const navigate = useNavigate();
@@ -39,14 +47,19 @@ export default function SurveyView() {
 
   async function cargarDatosIniciales() {
     try {
-      const { data: dataChoferes, error: errChoferes } = await supabase
-          .from("usuario")
-          .select("nombre")
-          .eq("rol", "chofer"); // Filtramos por el rol exacto de tu captura
+      // Traer Choferes
+      const { data: dataChoferes } = await supabase
+        .from("usuario")
+        .select("nombre")
+        .eq("rol", "chofer");
+      if (dataChoferes) setChoferes(dataChoferes);
 
-        if (!errChoferes) {
-          setChoferes(dataChoferes);
-        }
+      // Traer Auxiliares (NUEVO)
+      const { data: dataAuxiliares } = await supabase
+        .from("usuario")
+        .select("nombre")
+        .eq("rol", "auxiliar");
+      if (dataAuxiliares) setAuxiliares(dataAuxiliares);
 
       const listaTotal = await getPreguntas();
       
@@ -64,34 +77,9 @@ export default function SurveyView() {
 
       console.log("3. Preguntas después de filtrar:", filtradas);
 
-      // orden personalizado de preguntas
-      const mapaOrden = {
-        15: 1,
-        32: 2,
-        18: 3,
-        19: 4,
-        16: 5,
-        17: 6,
-        20: 7,
-        21: 8, 
-        23: 9,
-        24: 10,
-        33: 11,
-        25: 12,
-        34: 13,
-        26: 14,
-        35: 15,
-        29: 16,
-        36: 17,
-        37: 18,
-        38: 19,
-        28: 20,
-        27: 21
-      };
-
       const ordenadas = filtradas.sort((a, b) => {
-        const ordenA = mapaOrden[a.idpregunta] || 50;
-        const ordenB = mapaOrden[b.idpregunta] || 50;
+        const ordenA = MAPA_ORDEN[a.idpregunta] || 99;
+        const ordenB = MAPA_ORDEN[b.idpregunta] || 99;
         return ordenA - ordenB;
       });
 
@@ -298,12 +286,6 @@ const finalizarEncuesta = async () => {
   }
 };
 
-  const MAPA_ORDEN = {
-    15: 1, 32: 2, 18: 3, 19: 4, 16: 5, 17: 6, 20: 7, 
-    21: 8, 23: 9, 24: 10, 33: 11, 25: 12, 34: 13, 26: 14, 
-    35: 15, 29: 16, 36: 17, 37: 18, 38: 19, 28: 20, 27: 21, 30: 22, 31: 23
-  };
-
   return (
     <div className="cuestionario-wrapper">
       <div className="cuestionario-container">
@@ -380,6 +362,15 @@ const finalizarEncuesta = async () => {
                       >
                         <option value="">- Seleccione un Chofer -</option>
                         {choferes.map((c, i) => <option key={i} value={c.nombre}>{c.nombre}</option>)}
+                      </select>
+                    ) : p.descripcion.toLowerCase().includes("auxiliar") ? (
+                      <select 
+                        className="input-texto-moderno"
+                        value={respuestasValues[p.idpregunta] || ""}
+                        onChange={(e) => handleCambioRespuesta(p.idpregunta, e.target.value)}
+                      >
+                        <option value="">- Seleccione Auxiliar -</option>
+                        {auxiliares.map((a, i) => <option key={i} value={a.nombre}>{a.nombre}</option>)}
                       </select>
                     ) : (p.descripcion.toLowerCase().includes("región") || p.descripcion.toLowerCase().includes("region")) ? (
                       <select 

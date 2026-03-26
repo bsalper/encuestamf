@@ -4,7 +4,6 @@ import './Gracias.css';
 
 export default function Gracias() {
   const navigate = useNavigate();
-  const nombreSupervisor = sessionStorage.getItem("nombre_supervisor") || "tu supervisor";
 
   return (
     <div className="gracias-container">
@@ -22,15 +21,6 @@ export default function Gracias() {
             />
           </svg>
         </div>
-
-        <h1 className="gracias-titulo">Gracias.</h1>
-        <p className="gracias-subtitulo">
-          Su solicitud fue recibida exitosamente.
-        </p>
-        
-        <p className="gracias-detalle">
-          El reporte ha sido enviado por correo a <strong>{nombreSupervisor}</strong>.
-        </p>
 
         <button 
           className="btn-volver-inicio"
