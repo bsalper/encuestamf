@@ -49,16 +49,18 @@ export default function SurveyView() {
     try {
       // Traer Choferes
       const { data: dataChoferes } = await supabase
-        .from("usuario")
-        .select("nombre")
-        .eq("rol", "chofer");
+        .from("personal_operativo")
+        .select("id_personal, nombre_completo") // Traemos el ID también
+        .eq("tipo_personal", "chofer")
+        .eq("activo", true);
       if (dataChoferes) setChoferes(dataChoferes);
 
       // Traer Auxiliares (NUEVO)
       const { data: dataAuxiliares } = await supabase
-        .from("usuario")
-        .select("nombre")
-        .eq("rol", "auxiliar");
+        .from("personal_operativo")
+        .select("id_personal, nombre_completo")
+        .eq("tipo_personal", "auxiliar")
+        .eq("activo", true);
       if (dataAuxiliares) setAuxiliares(dataAuxiliares);
 
       const listaTotal = await getPreguntas();
@@ -170,17 +172,12 @@ const finalizarEncuesta = async () => {
     if (esLimpieza) tablaDestino = "respuestas_limpieza";
     if (!esOperario && !esLimpieza) tablaDestino = "respuesta";
 
-    // --- 2. BUSCAR EL NOMBRE DEL CHOFER (MODIFICADO para usar ID 40 en limpieza) ---
-    const idNombre = esLimpieza ? 40 : 15;
-    const nombreRealChofer = respuestasValues[idNombre] || nombreVendedor || "Sin Nombre";
-
     // --- A. CREAR EL ENCABEZADO (CABECERA) ---
     const { data: cabecera, error: errCabecera } = await supabase
       .from('formularios_hechos')
       .insert([{
         id_usuario: parseInt(idUsuario),
         tipo_formulario: idEncuesta,
-        nombre_encuestado: nombreRealChofer,
         id_supervisor: parseInt(idSupervisor)
       }])
       .select()
@@ -256,7 +253,23 @@ const finalizarEncuesta = async () => {
       
       // 4. Texto Normal
       else {
-        const payload = { ...basePayload, descripcion: valor ? String(valor) : null };
+        const esPreguntaChofer = p.descripcion.toLowerCase().includes("chofer") || p.descripcion.toLowerCase().includes("conductor");
+        const esPreguntaAuxiliar = p.descripcion.toLowerCase().includes("auxiliar");
+
+        const payload = { 
+          ...basePayload, 
+          descripcion: valor ? String(valor) : null 
+        };
+
+        // Si es chofer o auxiliar, el "valor" ahora será el ID (porque ajustaremos el <select> abajo)
+        if ((esPreguntaChofer || esPreguntaAuxiliar) && valor) {
+          payload.id_personal_respondido = parseInt(valor);
+          
+          // Para el correo, buscamos el nombre real usando el ID
+          const persona = [...choferes, ...auxiliares].find(per => String(per.id_personal) === String(valor));
+          textoCorreo = persona ? persona.nombre_completo : valor;
+        }
+
         await insertarRespuesta(payload, tablaDestino);
       }
 
@@ -361,7 +374,11 @@ const finalizarEncuesta = async () => {
                         onChange={(e) => handleCambioRespuesta(p.idpregunta, e.target.value)}
                       >
                         <option value="">- Seleccione un Chofer -</option>
-                        {choferes.map((c, i) => <option key={i} value={c.nombre}>{c.nombre}</option>)}
+                        {choferes.map((c) => (
+                          <option key={c.id_personal} value={c.id_personal}>
+                            {c.nombre_completo}
+                          </option>
+                        ))}
                       </select>
                     ) : p.descripcion.toLowerCase().includes("auxiliar") ? (
                       <select 
@@ -370,7 +387,11 @@ const finalizarEncuesta = async () => {
                         onChange={(e) => handleCambioRespuesta(p.idpregunta, e.target.value)}
                       >
                         <option value="">- Seleccione Auxiliar -</option>
-                        {auxiliares.map((a, i) => <option key={i} value={a.nombre}>{a.nombre}</option>)}
+                        {auxiliares.map((a) => (
+                          <option key={a.id_personal} value={a.id_personal}>
+                            {a.nombre_completo}
+                          </option>
+                        ))}
                       </select>
                     ) : (p.descripcion.toLowerCase().includes("región") || p.descripcion.toLowerCase().includes("region")) ? (
                       <select 
