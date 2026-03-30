@@ -386,7 +386,7 @@ const badgeLabel = (idLow.includes("operario") || idLow.includes("limpieza"))
                             marginTop: '15px', 
                             height: '90px', 
                             padding: '12px',
-                            borderColor: '#ff9800', 
+                            borderColor: '#1FB436', 
                             borderWidth: '2px',
                             width: '100%',
                             borderRadius: '8px',
