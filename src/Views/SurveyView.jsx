@@ -35,6 +35,12 @@ export default function SurveyView() {
   const [choferes, setChoferes] = useState([]);
   const [auxiliares, setAuxiliares] = useState([]);
 
+  const [observacionesExtra, setObservacionesExtra] = useState({}); 
+
+  const handleCambioObservacion = (idPregunta, texto) => {
+    setObservacionesExtra(prev => ({ ...prev, [idPregunta]: texto }));
+  };
+
   const { idEncuesta, idUsuario } = useParams();
   const navigate = useNavigate();
 
@@ -231,10 +237,15 @@ const finalizarEncuesta = async () => {
 
       // 2. Única (Radio Buttons)
       else if (tipo === "unica") {
-        const payload = { ...basePayload, idopcion: parseInt(valor) || null };
+        const comentarioExtra = observacionesExtra[p.idpregunta] || null;
+        const payload = {
+          ...basePayload,
+          idopcion: parseInt(valor) || null,
+          descripcion: comentarioExtra
+        };
         await insertarRespuesta(payload, tablaDestino);
         const opt = opcionesMap[p.idpregunta]?.find(o => String(o.idopcion) === String(valor));
-        textoCorreo = opt ? opt.descripcion : valor;
+        textoCorreo = opt ? (comentarioExtra ? `${opt.descripcion} (Nota: ${comentarioExtra})` : opt.descripcion) : valor;
       } 
       
       // 3. Múltiple (Checkboxes)
@@ -351,11 +362,42 @@ const badgeLabel = (idLow.includes("operario") || idLow.includes("limpieza"))
 
                 {/* CASO ÚNICA */}
                 {p.tipopregunta === "unica" && (
-                  <CuestionarioUnico 
-                    opciones={opcionesMap[p.idpregunta] || []} 
-                    onNext={(val) => handleCambioRespuesta(p.idpregunta, val)} 
-                    currentValue={respuestasValues[p.idpregunta]}
-                  />
+                  <> 
+                    <CuestionarioUnico 
+                      opciones={opcionesMap[p.idpregunta] || []} 
+                      onNext={(val) => handleCambioRespuesta(p.idpregunta, val)} 
+                      currentValue={respuestasValues[p.idpregunta]}
+                    />
+                    
+                    {(() => {
+                      const opcionElegida = opcionesMap[p.idpregunta]?.find(
+                        o => String(o.idopcion) === String(respuestasValues[p.idpregunta])
+                      );
+                      
+                      const descripcionUpper = opcionElegida?.descripcion?.toUpperCase() || "";
+                      const mostrarInput = descripcionUpper.includes("REQUIERE ATENCIÓN") || 
+                                          descripcionUpper === "OTRO";
+
+                      return mostrarInput ? (
+                        <textarea
+                          className="input-texto-moderno"
+                          placeholder="Especifique el motivo o detalle..."
+                          style={{ 
+                            marginTop: '15px', 
+                            height: '90px', 
+                            padding: '12px',
+                            borderColor: '#ff9800', 
+                            borderWidth: '2px',
+                            width: '100%',
+                            borderRadius: '8px',
+                            display: 'block' // Asegura que ocupe su propia línea
+                          }}
+                          value={observacionesExtra[p.idpregunta] || ""}
+                          onChange={(e) => handleCambioObservacion(p.idpregunta, e.target.value)}
+                        />
+                      ) : null;
+                    })()}
+                  </>
                 )}
 
                 {/* CASO FOTO */}
